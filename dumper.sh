@@ -1211,7 +1211,7 @@ elif [[ -s "${PROJECT_DIR}"/.gitgud_token ]]; then
 	if [ -f "${PROJECT_DIR}"/.gitgud_instance ]; then
 		GITGUD_INSTANCE=$(< "${PROJECT_DIR}"/.gitgud_instance)
 	else
-		GITGUD_INSTANCE="gitgud.com"
+		GITGUD_INSTANCE="gitgud.io"
 	fi
 	GITGUD_HOST="https://${GITGUD_INSTANCE}"
 
