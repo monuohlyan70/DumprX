@@ -977,11 +977,11 @@ otaver=$(grep -m1 -oP "(?<=^ro.build.version.ota=).*" -hs {vendor/euclid/product
 [[ -z "${otaver}" ]] && otaver=$(grep -m1 -oP "(?<=^ro.build.fota.version=).*" -hs {system,system/system}/build*.prop | head -1)
 [[ -z "${branch}" ]] && branch=$(echo "${description}" | tr ' ' '-')
 
-if [[ "$PUSH_TO_GITLAB" = true ]]; then
+if [[ "$PUSH_TO_GITGUD" = true ]]; then
 	rm -rf .github_token
 	repo=$(printf "${brand}" | tr '[:upper:]' '[:lower:]' && echo -e "/${codename}")
 else
-	rm -rf .gitlab_token
+	rm -rf .gitgud_token
 	repo=$(echo "${brand}"_"${codename}"_dump | tr '[:upper:]' '[:lower:]')
 fi
 
@@ -1198,32 +1198,32 @@ if [[ -s "${PROJECT_DIR}"/.github_token ]]; then
 		curl -s "https://api.telegram.org/bot${TG_TOKEN}/sendmessage" --data "text=${TEXT}&chat_id=${CHAT_ID}&parse_mode=HTML&disable_web_page_preview=True" || printf "Telegram Notification Sending Error.\n"
 	fi
 
-elif [[ -s "${PROJECT_DIR}"/.gitlab_token ]]; then
-	if [[ -s "${PROJECT_DIR}"/.gitlab_group ]]; then
-		GIT_ORG=$(< "${PROJECT_DIR}"/.gitlab_group)	# Set Your Gitlab Group Name
+elif [[ -s "${PROJECT_DIR}"/.gitgud_token ]]; then
+	if [[ -s "${PROJECT_DIR}"/.gitgud_group ]]; then
+		GIT_ORG=$(< "${PROJECT_DIR}"/.gitgud_group)	# Set Your Gitgud Group Name
 	else
 		GIT_USER="$(git config --get user.name)"
 		GIT_ORG="${GIT_USER}"				# Otherwise, Your Username will be used
 	fi
 
-	# Gitlab Vars
-	GITLAB_TOKEN=$(< "${PROJECT_DIR}"/.gitlab_token)	# Write Your Gitlab Token In a Text File
-	if [ -f "${PROJECT_DIR}"/.gitlab_instance ]; then
-		GITLAB_INSTANCE=$(< "${PROJECT_DIR}"/.gitlab_instance)
+	# Gitgud Vars
+	GITGUD_TOKEN=$(< "${PROJECT_DIR}"/.gitgud_token)	# Write Your Gitgud Token In a Text File
+	if [ -f "${PROJECT_DIR}"/.gitgud_instance ]; then
+		GITGUD_INSTANCE=$(< "${PROJECT_DIR}"/.gitgud_instance)
 	else
-		GITLAB_INSTANCE="gitlab.com"
+		GITGUD_INSTANCE="gitgud.com"
 	fi
-	GITLAB_HOST="https://${GITLAB_INSTANCE}"
+	GITGUD_HOST="https://${GITGUD_INSTANCE}"
 
 	# Check if already dumped or not
-	[[ $(curl -sL "${GITLAB_HOST}/${GIT_ORG}/${repo}/-/raw/${branch}/all_files.txt" | grep "all_files.txt") ]] && { printf "Firmware already dumped!\nGo to https://"$GITLAB_INSTANCE"/${GIT_ORG}/${repo}/-/tree/${branch}\n" && exit 1; }
+	[[ $(curl -sL "${GITGUD_HOST}/${GIT_ORG}/${repo}/-/raw/${branch}/all_files.txt" | grep "all_files.txt") ]] && { printf "Firmware already dumped!\nGo to https://"$GITGUD_INSTANCE"/${GIT_ORG}/${repo}/-/tree/${branch}\n" && exit 1; }
 
 	# Remove The Journal File Inside System/Vendor
 	find . -mindepth 2 -type d -name "\[SYS\]" -exec rm -rf {} \; 2>/dev/null
 	printf "\nFinal Repository Should Look Like...\n" && ls -lAog
 	printf "\n\nStarting Git Init...\n"
 
-	git init		# Insure Your GitLab Authorization Before Running This Script
+	git init		# Insure Your Gitgud Authorization Before Running This Script
 	git config --global http.postBuffer 524288000		# A Simple Tuning to Get Rid of curl (18) error while `git push`
 	git checkout -b "${branch}" || { git checkout -b "${incremental}" && export branch="${incremental}"; }
 	find . \( -name "*sensetime*" -o -name "*.lic" \) | cut -d'/' -f'2-' >| .gitignore
@@ -1232,18 +1232,18 @@ elif [[ -s "${PROJECT_DIR}"/.gitlab_token ]]; then
 	[[ -z "$(git config --get user.name)" ]] && git config user.name "Sushrut1101"
 
 	# Create Subgroup
-	GRP_ID=$(curl -s --request GET --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" "${GITLAB_HOST}/api/v4/groups/${GIT_ORG}" | jq -r '.id')
+	GRP_ID=$(curl -s --request GET --header "PRIVATE-TOKEN: ${GITGUD_TOKEN}" "${GITGUD_HOST}/api/v4/groups/${GIT_ORG}" | jq -r '.id')
 	curl --request POST \
-	--header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+	--header "PRIVATE-TOKEN: $GITGUD_TOKEN" \
 	--header "Content-Type: application/json" \
 	--data '{"name": "'"${brand}"'", "path": "'"$(echo ${brand} | tr [:upper:] [:lower:])"'", "visibility": "public", "parent_id": "'"${GRP_ID}"'"}' \
-	"${GITLAB_HOST}/api/v4/groups/"
+	"${GITGUD_HOST}/api/v4/groups/"
 	echo ""
 
 	# Subgroup ID
-	get_gitlab_subgrp_id(){
+	get_gitgud_subgrp_id(){
 		local SUBGRP=$(echo "$1" | tr '[:upper:]' '[:lower:]')
-		curl -s --request GET --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "${GITLAB_HOST}/api/v4/groups/${GIT_ORG}/subgroups" | jq -r .[] | jq -r .path,.id > /tmp/subgrp.txt
+		curl -s --request GET --header "PRIVATE-TOKEN: $GITGUD_TOKEN" "${GITGUD_HOST}/api/v4/groups/${GIT_ORG}/subgroups" | jq -r .[] | jq -r .path,.id > /tmp/subgrp.txt
 		local i
 		for i in $(seq "$(cat /tmp/subgrp.txt | wc -l)")
 		do
@@ -1252,19 +1252,19 @@ elif [[ -s "${PROJECT_DIR}"/.gitlab_token ]]; then
 		done
 		}
 
-	get_gitlab_subgrp_id ${brand} /tmp/subgrp_id.txt
+	get_gitgud_subgrp_id ${brand} /tmp/subgrp_id.txt
 	SUBGRP_ID=$(< /tmp/subgrp_id.txt)
 
 	# Create Repository
 	curl -s \
-	--header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+	--header "PRIVATE-TOKEN: ${GITGUD_TOKEN}" \
 	-X POST \
-	"${GITLAB_HOST}/api/v4/projects?name=${codename}&namespace_id=${SUBGRP_ID}&visibility=public"
+	"${GITGUD_HOST}/api/v4/projects?name=${codename}&namespace_id=${SUBGRP_ID}&visibility=public"
 
 	# Get Project/Repo ID
-	get_gitlab_project_id(){
+	get_gitgud_project_id(){
 		local PROJ="$1"
-		curl -s --request GET --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "${GITLAB_HOST}/api/v4/groups/$2/projects" | jq -r .[] | jq -r .path,.id > /tmp/proj.txt
+		curl -s --request GET --header "PRIVATE-TOKEN: $GITGUD_TOKEN" "${GITGUD_HOST}/api/v4/groups/$2/projects" | jq -r .[] | jq -r .path,.id > /tmp/proj.txt
 		local i
 		for i in $(seq "$(cat /tmp/proj.txt | wc -l)")
 		do
@@ -1272,25 +1272,25 @@ elif [[ -s "${PROJECT_DIR}"/.gitlab_token ]]; then
 			[[ "$TMP_I" == "$PROJ" ]] && cat /tmp/proj.txt | head -$(("$i"+1)) | tail -1 > "$3"
 		done
 		}
-	get_gitlab_project_id ${codename} ${SUBGRP_ID} /tmp/proj_id.txt
+	get_gitgud_project_id ${codename} ${SUBGRP_ID} /tmp/proj_id.txt
 	PROJECT_ID=$(< /tmp/proj_id.txt)
 
 	# Delete the Temporary Files
 	rm -rf /tmp/{subgrp,subgrp_id,proj,proj_id}.txt
 
 	# Commit and Push
-	# Pushing via HTTPS doesn't work on GitLab for Large Repos (it's an issue with gitlab for large repos)
-	# NOTE: Your SSH Keys Needs to be Added to your Gitlab Instance
-	git remote add origin git@${GITLAB_INSTANCE}:${GIT_ORG}/${repo}.git
+	# Pushing via HTTPS doesn't work on Gitgud for Large Repos (it's an issue with gitgud for large repos)
+	# NOTE: Your SSH Keys Needs to be Added to your Gitgud Instance
+	git remote add origin git@${GITGUD_INSTANCE}:${GIT_ORG}/${repo}.git
 
 	# Ensure that the target repo is public
-	curl --request PUT --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" --url ''"${GITLAB_HOST}"'/api/v4/projects/'"${PROJECT_ID}"'' --data "visibility=public"
+	curl --request PUT --header "PRIVATE-TOKEN: ${GITGUD_TOKEN}" --url ''"${GITGUD_HOST}"'/api/v4/projects/'"${PROJECT_ID}"'' --data "visibility=public"
 	printf "\n"
 
-	# Push to GitLab
-	while [[ ! $(curl -sL "${GITLAB_HOST}/${GIT_ORG}/${repo}/-/raw/${branch}/all_files.txt" | grep "all_files.txt") ]]
+	# Push to Gitgud
+	while [[ ! $(curl -sL "${GITGUD_HOST}/${GIT_ORG}/${repo}/-/raw/${branch}/all_files.txt" | grep "all_files.txt") ]]
 	do
-		printf "\nPushing to %s via SSH...\nBranch:%s\n" "${GITLAB_HOST}/${GIT_ORG}/${repo}.git" "${branch}"
+		printf "\nPushing to %s via SSH...\nBranch:%s\n" "${GITGUD_HOST}/${GIT_ORG}/${repo}.git" "${branch}"
 		sleep 1
 		git lfs install
 		[ -e ".gitattributes" ] || find . -type f -not -path ".git/*" -size +100M -exec git lfs track {} \;
@@ -1316,8 +1316,8 @@ elif [[ -s "${PROJECT_DIR}"/.gitlab_token ]]; then
 
 	# Update the Default Branch
 	curl	--request PUT \
-		--header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
-		--url ''"${GITLAB_HOST}"'/api/v4/projects/'"${PROJECT_ID}"'' \
+		--header "PRIVATE-TOKEN: ${GITGUD_TOKEN}" \
+		--url ''"${GITGUD_HOST}"'/api/v4/projects/'"${PROJECT_ID}"'' \
 		--data "default_branch=${branch}"
 	printf "\n"
 
@@ -1337,7 +1337,7 @@ elif [[ -s "${PROJECT_DIR}"/.gitlab_token ]]; then
 			printf "\n<b>Android Version:</b> %s" "${release}"
 			[ ! -z "${kernel_version}" ] && printf "\n<b>Kernel Version:</b> %s" "${kernel_version}"
 			printf "\n<b>Fingerprint:</b> %s" "${fingerprint}"
-			printf "\n<a href=\"${GITLAB_HOST}/%s/%s/-/tree/%s/\">Gitlab Tree</a>" "${GIT_ORG}" "${repo}" "${branch}"
+			printf "\n<a href=\"${GITGUD_HOST}/%s/%s/-/tree/%s/\">Gitgud Tree</a>" "${GIT_ORG}" "${repo}" "${branch}"
 		} >> "${OUTDIR}"/tg.html
 		TEXT=$(< "${OUTDIR}"/tg.html)
 		rm -rf "${OUTDIR}"/tg.html
